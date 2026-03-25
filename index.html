@@ -3,107 +3,196 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Birthday Card Maker</title>
+    <title>Card Maker</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/fabric.js/5.3.1/fabric.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Pacifico&family=Roboto:wght@400;700&family=Bebas+Neue&display=swap" rel="stylesheet">
+    
     <style>
-        * { box-sizing: border-box; }
+        :root {
+            --primary: #6366f1;
+            --primary-hover: #4f46e5;
+            --bg: #f3f4f6;
+            --surface: #ffffff;
+            --text: #1f2937;
+            --border: #e5e7eb;
+        }
+
+        * { box-sizing: border-box; font-family: 'Roboto', sans-serif; }
+        
         body {
             margin: 0;
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-            background-color: #f0f2f5;
+            background-color: var(--bg);
             display: flex;
             height: 100vh;
             overflow: hidden;
+            color: var(--text);
         }
 
-        /* Sidebar Styling */
-        #toolbar {
-            width: 260px;
-            background-color: white;
-            padding: 20px;
-            border-right: 1px solid #ddd;
+        /* Sidebar */
+        #sidebar {
+            width: 280px;
+            background: var(--surface);
+            border-right: 1px solid var(--border);
             display: flex;
             flex-direction: column;
-            gap: 12px;
-            box-shadow: 2px 0 8px rgba(0,0,0,0.05);
             z-index: 10;
         }
 
-        h1 { font-size: 1.2rem; margin: 0 0 10px 0; color: #333; }
+        .brand {
+            padding: 20px;
+            font-size: 1.5rem;
+            font-weight: 700;
+            border-bottom: 1px solid var(--border);
+            color: var(--primary);
+        }
 
-        button, .file-upload-label {
-            background-color: #0066cc;
-            color: white;
-            border: none;
+        .tools { padding: 20px; display: flex; flex-direction: column; gap: 10px; overflow-y: auto; }
+
+        button, .btn-label {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            color: var(--text);
             padding: 12px;
-            border-radius: 6px;
+            border-radius: 8px;
             cursor: pointer;
             font-size: 14px;
             font-weight: 600;
             text-align: center;
-            transition: background 0.2s;
+            transition: all 0.2s;
             width: 100%;
-            display: inline-block;
+            display: block;
         }
 
-        button:hover, .file-upload-label:hover { background-color: #0052a3; }
+        button:hover, .btn-label:hover { border-color: var(--primary); color: var(--primary); }
+        button.primary { background: var(--primary); color: white; border: none; }
+        button.primary:hover { background: var(--primary-hover); color: white; }
         
-        .danger { background-color: #dc3545; }
-        .danger:hover { background-color: #c82333; }
-        
-        .success { background-color: #28a745; }
-        .success:hover { background-color: #218838; }
-
         input[type="file"] { display: none; }
-        hr { border: 0; border-top: 1px solid #eee; margin: 10px 0; width: 100%; }
+        .divider { height: 1px; background: var(--border); margin: 10px 0; }
 
-        /* Workspace Styling */
+        /* Main Workspace */
+        #main {
+            flex-grow: 1;
+            display: flex;
+            flex-direction: column;
+            position: relative;
+        }
+
+        /* Contextual Top Bar for Text/Object properties */
+        #topbar {
+            height: 60px;
+            background: var(--surface);
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            padding: 0 20px;
+            gap: 15px;
+            opacity: 0; /* Hidden by default */
+            pointer-events: none;
+            transition: opacity 0.2s;
+        }
+
+        #topbar.active { opacity: 1; pointer-events: all; }
+
+        select, input[type="color"] {
+            padding: 8px;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            outline: none;
+            cursor: pointer;
+        }
+
+        /* Canvas Area */
         #workspace {
             flex-grow: 1;
             display: flex;
             justify-content: center;
             align-items: center;
             overflow: auto;
-            padding: 20px;
+            padding: 40px;
         }
 
-        .canvas-container {
-            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
-            background-color: white;
-        }
+        .canvas-container { box-shadow: 0 10px 30px rgba(0,0,0,0.1); }
 
-        /* Print Styling - Hides the UI so only the card prints */
+        /* Saves Modal */
+        #savesModal {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.5);
+            display: none; justify-content: center; align-items: center; z-index: 100;
+        }
+        .modal-content {
+            background: white; padding: 25px; border-radius: 12px;
+            width: 400px; max-height: 80vh; overflow-y: auto;
+        }
+        .save-item {
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 10px; border-bottom: 1px solid var(--border);
+        }
+        .save-item button { width: auto; padding: 6px 12px; }
+
         @media print {
-            body { background-color: white; display: block; }
-            #toolbar { display: none !important; }
-            #workspace { padding: 0; display: block; overflow: visible; }
-            .canvas-container { box-shadow: none; margin: 0 auto; }
-            @page { margin: 0.5cm; }
+            body { background: white; }
+            #sidebar, #topbar { display: none !important; }
+            #workspace { padding: 0; align-items: flex-start; justify-content: flex-start; }
+            .canvas-container { box-shadow: none; }
+            @page { margin: 0; }
         }
     </style>
 </head>
 <body>
 
-    <div id="toolbar">
-        <h1>Card Maker</h1>
-        
-        <button id="addTextBtn">Add Text</button>
-        
-        <label class="file-upload-label">
-            Add Image
-            <input type="file" id="imageUpload" accept="image/*">
-        </label>
-
-        <button id="deleteBtn" class="danger">Delete Selected</button>
-
-        <hr>
-
-        <button id="downloadBtn" class="success">Download Image</button>
-        <button id="printBtn">Print Card</button>
+    <div id="sidebar">
+        <div class="brand">Card Maker</div>
+        <div class="tools">
+            <button onclick="addText()">+ Add Text</button>
+            <label class="btn-label">
+                + Add Image
+                <input type="file" id="imageUpload" accept="image/*">
+            </label>
+            
+            <div class="divider"></div>
+            
+            <button onclick="toggleOrientation()">🔄 Swap Orientation</button>
+            <button onclick="deleteSelected()" style="color: #dc3545; border-color: #dc3545;">🗑️ Delete Selected</button>
+            
+            <div class="divider"></div>
+            
+            <button class="primary" onclick="saveProject()">💾 Save to Device</button>
+            <button onclick="openSavesModal()">📁 Open Saved Cards</button>
+            
+            <div class="divider"></div>
+            
+            <button class="primary" onclick="downloadCard()">⬇️ Download Image</button>
+            <button onclick="window.print()">🖨️ Print Card</button>
+        </div>
     </div>
 
-    <div id="workspace">
-        <canvas id="cardCanvas" width="500" height="700"></canvas>
+    <div id="main">
+        <div id="topbar">
+            <select id="fontFamily" onchange="updateTextProperty('fontFamily', this.value)">
+                <option value="Roboto">Roboto</option>
+                <option value="Pacifico">Pacifico</option>
+                <option value="Bebas Neue">Bebas Neue</option>
+                <option value="Arial">Arial</option>
+            </select>
+            
+            <div style="display: flex; align-items: center; gap: 5px;">
+                <label style="font-size: 14px;">Color:</label>
+                <input type="color" id="textColor" onchange="updateTextProperty('fill', this.value)">
+            </div>
+        </div>
+
+        <div id="workspace">
+            <canvas id="cardCanvas"></canvas>
+        </div>
+    </div>
+
+    <div id="savesModal">
+        <div class="modal-content">
+            <h2 style="margin-top: 0;">My Saved Cards</h2>
+            <div id="savesList"></div>
+            <button onclick="closeSavesModal()" style="margin-top: 20px;">Close</button>
+        </div>
     </div>
 
     <script src="app.js"></script>
