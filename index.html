@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Birthday Card Maker</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/fabric.js/5.3.1/fabric.min.js"></script>
+    <style>
+        * { box-sizing: border-box; }
+        body {
+            margin: 0;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: #f0f2f5;
+            display: flex;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        /* Sidebar Styling */
+        #toolbar {
+            width: 260px;
+            background-color: white;
+            padding: 20px;
+            border-right: 1px solid #ddd;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            box-shadow: 2px 0 8px rgba(0,0,0,0.05);
+            z-index: 10;
+        }
+
+        h1 { font-size: 1.2rem; margin: 0 0 10px 0; color: #333; }
+
+        button, .file-upload-label {
+            background-color: #0066cc;
+            color: white;
+            border: none;
+            padding: 12px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+            text-align: center;
+            transition: background 0.2s;
+            width: 100%;
+            display: inline-block;
+        }
+
+        button:hover, .file-upload-label:hover { background-color: #0052a3; }
+        
+        .danger { background-color: #dc3545; }
+        .danger:hover { background-color: #c82333; }
+        
+        .success { background-color: #28a745; }
+        .success:hover { background-color: #218838; }
+
+        input[type="file"] { display: none; }
+        hr { border: 0; border-top: 1px solid #eee; margin: 10px 0; width: 100%; }
+
+        /* Workspace Styling */
+        #workspace {
+            flex-grow: 1;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            overflow: auto;
+            padding: 20px;
+        }
+
+        .canvas-container {
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            background-color: white;
+        }
+
+        /* Print Styling - Hides the UI so only the card prints */
+        @media print {
+            body { background-color: white; display: block; }
+            #toolbar { display: none !important; }
+            #workspace { padding: 0; display: block; overflow: visible; }
+            .canvas-container { box-shadow: none; margin: 0 auto; }
+            @page { margin: 0.5cm; }
+        }
+    </style>
+</head>
+<body>
+
+    <div id="toolbar">
+        <h1>Card Maker</h1>
+        
+        <button id="addTextBtn">Add Text</button>
+        
+        <label class="file-upload-label">
+            Add Image
+            <input type="file" id="imageUpload" accept="image/*">
+        </label>
+
+        <button id="deleteBtn" class="danger">Delete Selected</button>
+
+        <hr>
+
+        <button id="downloadBtn" class="success">Download Image</button>
+        <button id="printBtn">Print Card</button>
+    </div>
+
+    <div id="workspace">
+        <canvas id="cardCanvas" width="500" height="700"></canvas>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
