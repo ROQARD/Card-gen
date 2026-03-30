@@ -3,146 +3,90 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Card Maker</title>
+    <title>Card Maker Pro</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/fabric.js/5.3.1/fabric.min.js"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Pacifico&family=Roboto:wght@400;700&family=Bebas+Neue&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Pacifico&family=Roboto:wght@400;700&family=Bebas+Neue&family=Montserrat:wght@600&display=swap" rel="stylesheet">
     
     <style>
         :root {
-            --primary: #6366f1;
-            --primary-hover: #4f46e5;
-            --bg: #f3f4f6;
+            --primary: #4f46e5;
+            --primary-hover: #4338ca;
+            --bg: #f8fafc;
             --surface: #ffffff;
-            --text: #1f2937;
-            --border: #e5e7eb;
+            --text: #1e293b;
+            --border: #e2e8f0;
+            --danger: #ef4444;
         }
 
         * { box-sizing: border-box; font-family: 'Roboto', sans-serif; }
         
-        body {
-            margin: 0;
-            background-color: var(--bg);
-            display: flex;
-            height: 100vh;
-            overflow: hidden;
-            color: var(--text);
-        }
+        body { margin: 0; background-color: var(--bg); display: flex; height: 100vh; overflow: hidden; color: var(--text); }
 
-        /* Sidebar */
+        /* Sidebar UI */
         #sidebar {
-            width: 280px;
-            background: var(--surface);
-            border-right: 1px solid var(--border);
-            display: flex;
-            flex-direction: column;
-            z-index: 10;
+            width: 280px; background: var(--surface); border-right: 1px solid var(--border);
+            display: flex; flex-direction: column; z-index: 10; box-shadow: 2px 0 10px rgba(0,0,0,0.03);
         }
 
-        .brand {
-            padding: 20px;
-            font-size: 1.5rem;
-            font-weight: 700;
-            border-bottom: 1px solid var(--border);
-            color: var(--primary);
-        }
+        .brand { padding: 20px; font-size: 1.4rem; font-weight: 700; border-bottom: 1px solid var(--border); color: var(--primary); display: flex; align-items: center; gap: 10px;}
 
-        .tools { padding: 20px; display: flex; flex-direction: column; gap: 10px; overflow-y: auto; }
+        .tools { padding: 20px; display: flex; flex-direction: column; gap: 12px; overflow-y: auto; }
 
         button, .btn-label {
-            background: var(--surface);
-            border: 1px solid var(--border);
-            color: var(--text);
-            padding: 12px;
-            border-radius: 8px;
-            cursor: pointer;
-            font-size: 14px;
-            font-weight: 600;
-            text-align: center;
-            transition: all 0.2s;
-            width: 100%;
-            display: block;
+            background: var(--surface); border: 1px solid var(--border); color: var(--text);
+            padding: 10px 14px; border-radius: 6px; cursor: pointer; font-size: 14px; font-weight: 600;
+            text-align: center; transition: all 0.2s; width: 100%; display: block;
         }
 
-        button:hover, .btn-label:hover { border-color: var(--primary); color: var(--primary); }
+        button:hover, .btn-label:hover { border-color: var(--primary); color: var(--primary); background: #f5f3ff; }
         button.primary { background: var(--primary); color: white; border: none; }
         button.primary:hover { background: var(--primary-hover); color: white; }
+        button.danger { color: var(--danger); border-color: #fca5a5; }
+        button.danger:hover { background: #fef2f2; color: var(--danger); border-color: var(--danger); }
         
         input[type="file"] { display: none; }
-        .divider { height: 1px; background: var(--border); margin: 10px 0; }
+        .divider { height: 1px; background: var(--border); margin: 8px 0; }
 
-        /* Main Workspace */
-        #main {
-            flex-grow: 1;
-            display: flex;
-            flex-direction: column;
-            position: relative;
-        }
+        /* Main Workspace & Context Bar */
+        #main { flex-grow: 1; display: flex; flex-direction: column; position: relative; }
 
-        /* Contextual Top Bar for Text/Object properties */
         #topbar {
-            height: 60px;
-            background: var(--surface);
-            border-bottom: 1px solid var(--border);
-            display: flex;
-            align-items: center;
-            padding: 0 20px;
-            gap: 15px;
-            opacity: 0; /* Hidden by default */
-            pointer-events: none;
-            transition: opacity 0.2s;
+            height: 64px; background: var(--surface); border-bottom: 1px solid var(--border);
+            display: flex; align-items: center; padding: 0 20px; gap: 20px;
+            opacity: 0; pointer-events: none; transition: opacity 0.2s; box-shadow: 0 2px 10px rgba(0,0,0,0.02);
         }
 
         #topbar.active { opacity: 1; pointer-events: all; }
 
-        select, input[type="color"] {
-            padding: 8px;
-            border: 1px solid var(--border);
-            border-radius: 6px;
-            outline: none;
-            cursor: pointer;
-        }
+        .control-group { display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 500; color: #64748b;}
 
-        /* Canvas Area */
-        #workspace {
-            flex-grow: 1;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            overflow: auto;
-            padding: 40px;
+        select, input[type="color"], input[type="number"] {
+            padding: 6px 10px; border: 1px solid var(--border); border-radius: 4px; outline: none; cursor: pointer; font-size: 13px;
         }
+        input[type="number"] { width: 60px; }
+        input[type="color"] { padding: 2px; width: 30px; height: 30px; }
 
-        .canvas-container { box-shadow: 0 10px 30px rgba(0,0,0,0.1); }
+        #workspace { flex-grow: 1; display: flex; justify-content: center; align-items: center; overflow: auto; padding: 40px; }
+        .canvas-container { box-shadow: 0 12px 40px rgba(0,0,0,0.15); border-radius: 4px; }
 
         /* Saves Modal */
-        #savesModal {
-            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0,0,0,0.5);
-            display: none; justify-content: center; align-items: center; z-index: 100;
-        }
-        .modal-content {
-            background: white; padding: 25px; border-radius: 12px;
-            width: 400px; max-height: 80vh; overflow-y: auto;
-        }
-        .save-item {
-            display: flex; justify-content: space-between; align-items: center;
-            padding: 10px; border-bottom: 1px solid var(--border);
-        }
+        #savesModal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); display: none; justify-content: center; align-items: center; z-index: 100; backdrop-filter: blur(2px); }
+        .modal-content { background: white; padding: 30px; border-radius: 12px; width: 450px; max-height: 80vh; overflow-y: auto; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1); }
+        .save-item { display: flex; justify-content: space-between; align-items: center; padding: 12px 0; border-bottom: 1px solid var(--border); }
+        .save-item:last-child { border-bottom: none; }
         .save-item button { width: auto; padding: 6px 12px; }
 
         @media print {
-            body { background: white; }
-            #sidebar, #topbar { display: none !important; }
+            body { background: white; } #sidebar, #topbar { display: none !important; }
             #workspace { padding: 0; align-items: flex-start; justify-content: flex-start; }
-            .canvas-container { box-shadow: none; }
-            @page { margin: 0; }
+            .canvas-container { box-shadow: none; border-radius: 0;} @page { margin: 0; }
         }
     </style>
 </head>
 <body>
 
     <div id="sidebar">
-        <div class="brand">Card Maker</div>
+        <div class="brand">✨ Card Maker</div>
         <div class="tools">
             <button onclick="addText()">+ Add Text</button>
             <label class="btn-label">
@@ -152,49 +96,14 @@
             
             <div class="divider"></div>
             
+            <div style="font-size: 12px; color: #64748b; font-weight: 600; text-transform: uppercase;">Canvas & Layers</div>
             <button onclick="toggleOrientation()">🔄 Swap Orientation</button>
-            <button onclick="deleteSelected()" style="color: #dc3545; border-color: #dc3545;">🗑️ Delete Selected</button>
-            
-            <div class="divider"></div>
-            
-            <button class="primary" onclick="saveProject()">💾 Save to Device</button>
-            <button onclick="openSavesModal()">📁 Open Saved Cards</button>
-            
-            <div class="divider"></div>
-            
-            <button class="primary" onclick="downloadCard()">⬇️ Download Image</button>
-            <button onclick="window.print()">🖨️ Print Card</button>
-        </div>
-    </div>
-
-    <div id="main">
-        <div id="topbar">
-            <select id="fontFamily" onchange="updateTextProperty('fontFamily', this.value)">
-                <option value="Roboto">Roboto</option>
-                <option value="Pacifico">Pacifico</option>
-                <option value="Bebas Neue">Bebas Neue</option>
-                <option value="Arial">Arial</option>
-            </select>
-            
-            <div style="display: flex; align-items: center; gap: 5px;">
-                <label style="font-size: 14px;">Color:</label>
-                <input type="color" id="textColor" onchange="updateTextProperty('fill', this.value)">
+            <div style="display: flex; gap: 8px;">
+                <button onclick="moveLayer('up')">⬆️ Forward</button>
+                <button onclick="moveLayer('down')">⬇️ Backward</button>
             </div>
-        </div>
-
-        <div id="workspace">
-            <canvas id="cardCanvas"></canvas>
-        </div>
-    </div>
-
-    <div id="savesModal">
-        <div class="modal-content">
-            <h2 style="margin-top: 0;">My Saved Cards</h2>
-            <div id="savesList"></div>
-            <button onclick="closeSavesModal()" style="margin-top: 20px;">Close</button>
-        </div>
-    </div>
-
-    <script src="app.js"></script>
-</body>
-</html>
+            <button onclick="deleteSelected()" class="danger">🗑️ Delete Selected</button>
+            
+            <div class="divider"></div>
+            
+            <button class="primary" onclick="saveProject
