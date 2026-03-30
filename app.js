@@ -2,7 +2,7 @@ window.onload = function() {
     const CARD_PORTRAIT = { width: 500, height: 700 };
     const CARD_LANDSCAPE = { width: 700, height: 500 };
     let isPortrait = true;
-    let activeProjectId = null; // Tracks current open project
+    let activeProjectId = null; 
 
     const canvas = new fabric.Canvas('cardCanvas', {
         width: CARD_PORTRAIT.width, height: CARD_PORTRAIT.height,
@@ -42,7 +42,7 @@ window.onload = function() {
 
     // --- ACTIONS ---
     window.addText = () => {
-        const t = new fabric.IText('Double Click', { left: 100, top: 100, fontFamily: 'Montserrat', fontSize: 40, fontWeight: 'bold' });
+        const t = new fabric.IText('Double Tap', { left: 100, top: 100, fontFamily: 'Montserrat', fontSize: 40, fontWeight: 'bold' });
         canvas.add(t); canvas.setActiveObject(t);
     };
 
@@ -50,7 +50,10 @@ window.onload = function() {
         const reader = new FileReader();
         reader.onload = (f) => {
             fabric.Image.fromURL(f.target.result, (img) => {
-                img.scaleToWidth(250); canvas.add(img); canvas.setActiveObject(img);
+                // Auto-scale images to be a manageable size on the canvas
+                img.scaleToWidth(250); 
+                canvas.add(img); 
+                canvas.setActiveObject(img);
             });
         };
         reader.readAsDataURL(e.target.files[0]);
@@ -97,13 +100,11 @@ window.onload = function() {
         let id = activeProjectId;
         let name = "";
 
-        // If it's a new manual save or no active project, ask for name
         if (!isAuto || !id) {
             name = prompt("Project Name:", activeProjectId ? "Overwrite Current" : "My Card");
             if (!name) return;
-            if (!activeProjectId) id = Date.now(); // Create new ID
+            if (!activeProjectId) id = Date.now(); 
         } else {
-            // Find existing name for auto-save
             name = document.getElementById('saveStatus').innerText.replace("Project: ", "").replace(" (Saving...)", "");
         }
 
@@ -123,7 +124,7 @@ window.onload = function() {
         };
     };
 
-    // Auto-save timer (runs every 5 seconds if a project is active)
+    // Auto-save every 5 seconds
     setInterval(() => {
         if (activeProjectId) {
             document.getElementById('saveStatus').innerText += " (Saving...)";
@@ -144,8 +145,8 @@ window.onload = function() {
                 const row = document.createElement('div');
                 row.className = 'save-item';
                 row.innerHTML = `<span>${p.name}</span> <div>
-                    <button onclick="loadProject(${p.id})">Load</button>
-                    <button onclick="deleteProject(${p.id})" style="color:red">X</button>
+                    <button class="primary" onclick="loadProject(${p.id})">Load</button>
+                    <button class="danger" onclick="deleteProject(${p.id})">X</button>
                 </div>`;
                 list.appendChild(row);
             });
