@@ -1,229 +1,179 @@
-// Ensure everything runs only after the page is ready
 window.onload = function() {
-    
     const CARD_PORTRAIT = { width: 500, height: 700 };
     const CARD_LANDSCAPE = { width: 700, height: 500 };
     let isPortrait = true;
+    let activeProjectId = null; // Tracks current open project
 
-    // Initialize Canvas
     const canvas = new fabric.Canvas('cardCanvas', {
-        width: CARD_PORTRAIT.width,
-        height: CARD_PORTRAIT.height,
-        backgroundColor: '#ffffff',
-        preserveObjectStacking: true 
+        width: CARD_PORTRAIT.width, height: CARD_PORTRAIT.height,
+        backgroundColor: '#ffffff', preserveObjectStacking: true
     });
 
-    // --- UI CONTEXT MENU LOGIC ---
+    // --- UI SYNC ---
     const topbar = document.getElementById('topbar');
-    const fontSelector = document.getElementById('fontFamily');
-    const colorSelector = document.getElementById('textColor');
-    const strokeColorSelector = document.getElementById('strokeColor');
-    const strokeWidthSelector = document.getElementById('strokeWidth');
-
     canvas.on('selection:created', handleSelection);
     canvas.on('selection:updated', handleSelection);
     canvas.on('selection:cleared', () => topbar.classList.remove('active'));
 
     function handleSelection(e) {
-        const activeObject = e.selected[0];
-        if (activeObject && activeObject.type === 'i-text') {
-            topbar.classList.add('active');
-            fontSelector.value = activeObject.fontFamily || 'Roboto';
-            colorSelector.value = activeObject.fill || '#000000';
-            strokeColorSelector.value = activeObject.stroke || '#ffffff';
-            strokeWidthSelector.value = activeObject.strokeWidth || 0;
-        } else {
-            topbar.classList.remove('active');
+        const obj = e.selected[0];
+        topbar.classList.add('active');
+        if (obj.type === 'i-text' || obj.type === 'text') {
+            document.getElementById('fontFamily').value = obj.fontFamily;
+            document.getElementById('textColor').value = obj.fill;
+            document.getElementById('strokeColor').value = obj.stroke || '#ffffff';
+            document.getElementById('strokeWidth').value = obj.strokeWidth || 0;
+            document.getElementById('opacity').value = obj.opacity || 1;
         }
     }
 
-    // Attach to window so HTML buttons can trigger them
-    window.updateTextProperty = function(property, value) {
-        const activeObject = canvas.getActiveObject();
-        if (activeObject && activeObject.type === 'i-text') {
-            if (property === 'strokeWidth') value = parseFloat(value);
-            activeObject.set(property, value);
+    window.updateTextProperty = function(p, v) {
+        const obj = canvas.getActiveObject();
+        if (obj) {
+            if (['strokeWidth', 'opacity'].includes(p)) v = parseFloat(v);
+            obj.set(p, v);
             canvas.requestRenderAll();
         }
     };
 
-    // --- CORE FEATURES ---
-    window.addText = function() {
-        const text = new fabric.IText('Edit Text', {
-            left: canvas.width / 2 - 80,
-            top: canvas.height / 2,
-            fontFamily: 'Montserrat',
-            fill: '#1e293b',
-            fontSize: 42,
-            fontWeight: 'bold',
-            stroke: '#ffffff',
-            strokeWidth: 0
-        });
-        canvas.add(text);
-        canvas.setActiveObject(text);
+    window.updateCanvasBg = function(color) {
+        canvas.setBackgroundColor(color, canvas.renderAll.bind(canvas));
     };
 
-    document.getElementById('imageUpload').addEventListener('change', function(e) {
-        const file = e.target.files[0];
-        if (!file) return;
+    // --- ACTIONS ---
+    window.addText = () => {
+        const t = new fabric.IText('Double Click', { left: 100, top: 100, fontFamily: 'Montserrat', fontSize: 40, fontWeight: 'bold' });
+        canvas.add(t); canvas.setActiveObject(t);
+    };
 
+    document.getElementById('imageUpload').onchange = (e) => {
         const reader = new FileReader();
-        reader.onload = function(event) {
-            const imgObj = new Image();
-            imgObj.src = event.target.result;
-            imgObj.onload = function() {
-                const img = new fabric.Image(imgObj);
-                if (img.width > canvas.width) img.scaleToWidth(canvas.width * 0.8);
-                img.set({ left: 40, top: 40 });
-                canvas.add(img);
-                canvas.setActiveObject(img);
-            }
+        reader.onload = (f) => {
+            fabric.Image.fromURL(f.target.result, (img) => {
+                img.scaleToWidth(250); canvas.add(img); canvas.setActiveObject(img);
+            });
         };
-        reader.readAsDataURL(file);
-        e.target.value = ''; 
-    });
-
-    window.moveLayer = function(direction) {
-        const activeObject = canvas.getActiveObject();
-        if (!activeObject) return;
-        if (direction === 'up') canvas.bringForward(activeObject);
-        if (direction === 'down') canvas.sendBackwards(activeObject);
-        canvas.requestRenderAll();
+        reader.readAsDataURL(e.target.files[0]);
     };
 
-    window.toggleOrientation = function() {
+    window.toggleOrientation = () => {
         isPortrait = !isPortrait;
-        const newDims = isPortrait ? CARD_PORTRAIT : CARD_LANDSCAPE;
-        canvas.setWidth(newDims.width);
-        canvas.setHeight(newDims.height);
-        
-        canvas.getObjects().forEach(obj => {
-            if (obj.left > newDims.width) obj.set('left', newDims.width - 150);
-            if (obj.top > newDims.height) obj.set('top', newDims.height - 100);
-        });
+        const d = isPortrait ? CARD_PORTRAIT : CARD_LANDSCAPE;
+        canvas.setDimensions(d); canvas.requestRenderAll();
+    };
+
+    window.moveLayer = (dir) => {
+        const obj = canvas.getActiveObject();
+        if (!obj) return;
+        dir === 'up' ? canvas.bringForward(obj) : canvas.sendBackwards(obj);
         canvas.requestRenderAll();
     };
 
-    window.deleteSelected = function() {
-        const activeObjects = canvas.getActiveObjects();
-        if (activeObjects.length) {
-            canvas.discardActiveObject();
-            activeObjects.forEach(obj => canvas.remove(obj));
-        }
+    window.deleteSelected = () => {
+        canvas.getActiveObjects().forEach(obj => canvas.remove(obj));
+        canvas.discardActiveObject();
     };
 
-    window.addEventListener('keydown', (e) => {
-        if (e.key === 'Delete' || e.key === 'Backspace') {
-            if (!canvas.getActiveObject()?.isEditing) window.deleteSelected();
-        }
-    });
-
-    window.downloadCard = function() {
-        canvas.discardActiveObject(); 
-        canvas.renderAll();
+    window.downloadCard = () => {
+        canvas.discardActiveObject().renderAll();
         const link = document.createElement('a');
-        link.download = 'MyCard.png';
-        link.href = canvas.toDataURL({ format: 'png', quality: 1, multiplier: 2 });
+        link.download = 'Card.png';
+        link.href = canvas.toDataURL({ format: 'png', multiplier: 2 });
         link.click();
     };
 
-    // --- DATABASE LOGIC (Safely Wrapped) ---
-    let db = null;
-    try {
-        const request = indexedDB.open("CardMakerDB", 1);
-        request.onupgradeneeded = (e) => {
-            db = e.target.result;
-            if (!db.objectStoreNames.contains('projects')) {
-                db.createObjectStore('projects', { keyPath: 'id' });
-            }
-        };
-        request.onsuccess = (e) => db = e.target.result;
-        request.onerror = (e) => console.warn("Database access denied by browser.");
-    } catch(err) {
-        console.warn("IndexedDB is not supported in this environment.");
-    }
-
-    window.saveProject = function() {
-        if (!db) return alert("Saving to database is blocked by your browser's local file settings. You can still download the image!");
-        const name = prompt("Name your card design:", "New Card");
-        if (!name) return;
-
-        const projectData = {
-            id: Date.now(),
-            name: name,
-            isPortrait: isPortrait,
-            json: JSON.stringify(canvas.toJSON()) 
-        };
-
-        const transaction = db.transaction(['projects'], 'readwrite');
-        const store = transaction.objectStore('projects');
-        store.put(projectData);
-        transaction.oncomplete = () => alert("Card saved successfully!");
+    // --- DATABASE & AUTO-SAVE ---
+    let db;
+    const dbReq = indexedDB.open("CardMakerProDB", 2);
+    dbReq.onupgradeneeded = (e) => {
+        db = e.target.result;
+        if (!db.objectStoreNames.contains('projects')) db.createObjectStore('projects', { keyPath: 'id' });
     };
+    dbReq.onsuccess = (e) => db = e.target.result;
 
-    window.loadProject = function(id) {
-        const transaction = db.transaction(['projects'], 'readonly');
-        const store = transaction.objectStore('projects');
-        const req = store.get(id);
+    window.saveProject = function(isAuto = false) {
+        if (!db) return;
+        
+        let id = activeProjectId;
+        let name = "";
 
-        req.onsuccess = () => {
-            const project = req.result;
-            if (project) {
-                isPortrait = project.isPortrait;
-                const dims = isPortrait ? CARD_PORTRAIT : CARD_LANDSCAPE;
-                canvas.setWidth(dims.width);
-                canvas.setHeight(dims.height);
-                canvas.loadFromJSON(project.json, () => {
-                    canvas.renderAll();
-                    window.closeSavesModal();
-                });
-            }
+        // If it's a new manual save or no active project, ask for name
+        if (!isAuto || !id) {
+            name = prompt("Project Name:", activeProjectId ? "Overwrite Current" : "My Card");
+            if (!name) return;
+            if (!activeProjectId) id = Date.now(); // Create new ID
+        } else {
+            // Find existing name for auto-save
+            name = document.getElementById('saveStatus').innerText.replace("Project: ", "").replace(" (Saving...)", "");
+        }
+
+        const data = {
+            id: id, name: name, isPortrait: isPortrait,
+            json: JSON.stringify(canvas.toJSON()),
+            bgColor: document.getElementById('bgColor').value
+        };
+
+        const tx = db.transaction(['projects'], 'readwrite');
+        tx.objectStore('projects').put(data);
+        
+        tx.oncomplete = () => {
+            activeProjectId = id;
+            document.getElementById('saveStatus').innerText = `Project: ${name}`;
+            if (!isAuto) alert("Project Saved!");
         };
     };
 
-    window.deleteProjectFromDB = function(id) {
-        if(!confirm("Are you sure you want to delete this save?")) return;
-        const transaction = db.transaction(['projects'], 'readwrite');
-        const store = transaction.objectStore('projects');
-        store.delete(id);
-        transaction.oncomplete = () => window.openSavesModal(); 
-    };
+    // Auto-save timer (runs every 5 seconds if a project is active)
+    setInterval(() => {
+        if (activeProjectId) {
+            document.getElementById('saveStatus').innerText += " (Saving...)";
+            window.saveProject(true);
+        }
+    }, 5000);
 
-    // --- MODAL LOGIC ---
-    const modal = document.getElementById('savesModal');
-
-    window.openSavesModal = function() {
-        if (!db) return alert("Database is blocked by your browser settings.");
+    window.openSavesModal = () => {
+        const modal = document.getElementById('savesModal');
         const list = document.getElementById('savesList');
-        list.innerHTML = 'Loading...';
         modal.style.display = 'flex';
+        list.innerHTML = "Loading...";
 
-        const transaction = db.transaction(['projects'], 'readonly');
-        const store = transaction.objectStore('projects');
-        const req = store.getAll();
-
-        req.onsuccess = () => {
-            list.innerHTML = '';
-            if (req.result.length === 0) {
-                list.innerHTML = '<p>No saved cards yet.</p>';
-                return;
-            }
-            
-            req.result.forEach(project => {
-                const div = document.createElement('div');
-                div.className = 'save-item';
-                const dateStr = new Date(project.id).toLocaleDateString();
-                div.innerHTML = `
-                    <div><strong>${project.name}</strong><br><small>${dateStr}</small></div>
-                    <div style="display:flex; gap: 8px;">
-                        <button class="primary" onclick="loadProject(${project.id})">Load</button>
-                        <button class="danger" onclick="deleteProjectFromDB(${project.id})">X</button>
-                    </div>
-                `;
-                list.appendChild(div);
+        const tx = db.transaction(['projects'], 'readonly');
+        tx.objectStore('projects').getAll().onsuccess = (e) => {
+            list.innerHTML = "";
+            e.target.result.forEach(p => {
+                const row = document.createElement('div');
+                row.className = 'save-item';
+                row.innerHTML = `<span>${p.name}</span> <div>
+                    <button onclick="loadProject(${p.id})">Load</button>
+                    <button onclick="deleteProject(${p.id})" style="color:red">X</button>
+                </div>`;
+                list.appendChild(row);
             });
         };
     };
 
-    window.closeSavesModal = function() { modal.style.display = 'none'; };
+    window.loadProject = (id) => {
+        const tx = db.transaction(['projects'], 'readonly');
+        tx.objectStore('projects').get(id).onsuccess = (e) => {
+            const p = e.target.result;
+            activeProjectId = p.id;
+            isPortrait = p.isPortrait;
+            canvas.setDimensions(isPortrait ? CARD_PORTRAIT : CARD_LANDSCAPE);
+            document.getElementById('bgColor').value = p.bgColor || "#ffffff";
+            updateCanvasBg(p.bgColor || "#ffffff");
+            canvas.loadFromJSON(p.json, () => {
+                canvas.renderAll();
+                document.getElementById('saveStatus').innerText = `Project: ${p.name}`;
+                document.getElementById('savesModal').style.display = 'none';
+            });
+        };
+    };
+
+    window.deleteProject = (id) => {
+        if (!confirm("Delete this card?")) return;
+        db.transaction(['projects'], 'readwrite').objectStore('projects').delete(id).oncomplete = () => {
+            if (activeProjectId === id) activeProjectId = null;
+            window.openSavesModal();
+        };
+    };
 };
