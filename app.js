@@ -1,57 +1,61 @@
-// --- CONFIGURATION ---
 const CARD_PORTRAIT = { width: 500, height: 700 };
 const CARD_LANDSCAPE = { width: 700, height: 500 };
 let isPortrait = true;
 
-// Initialize Canvas
 const canvas = new fabric.Canvas('cardCanvas', {
     width: CARD_PORTRAIT.width,
     height: CARD_PORTRAIT.height,
     backgroundColor: '#ffffff',
-    preserveObjectStacking: true
+    preserveObjectStacking: true // Essential for proper layer management
 });
 
 // --- UI CONTEXT MENU LOGIC ---
 const topbar = document.getElementById('topbar');
 const fontSelector = document.getElementById('fontFamily');
 const colorSelector = document.getElementById('textColor');
+const strokeColorSelector = document.getElementById('strokeColor');
+const strokeWidthSelector = document.getElementById('strokeWidth');
 
-// Show/Hide top bar based on selection
 canvas.on('selection:created', handleSelection);
 canvas.on('selection:updated', handleSelection);
-canvas.on('selection:cleared', () => {
-    topbar.classList.remove('active');
-});
+canvas.on('selection:cleared', () => topbar.classList.remove('active'));
 
 function handleSelection(e) {
     const activeObject = e.selected[0];
     if (activeObject && activeObject.type === 'i-text') {
         topbar.classList.add('active');
-        // Sync the UI controls to match the selected text's actual properties
+        // Sync UI inputs with the selected object's actual data
         fontSelector.value = activeObject.fontFamily || 'Roboto';
         colorSelector.value = activeObject.fill || '#000000';
+        strokeColorSelector.value = activeObject.stroke || '#ffffff';
+        strokeWidthSelector.value = activeObject.strokeWidth || 0;
     } else {
-        topbar.classList.remove('active'); // Hide if an image is selected
+        topbar.classList.remove('active');
     }
 }
 
 function updateTextProperty(property, value) {
     const activeObject = canvas.getActiveObject();
     if (activeObject && activeObject.type === 'i-text') {
+        // Ensure thickness is treated as a number, not a string
+        if (property === 'strokeWidth') value = parseFloat(value);
+        
         activeObject.set(property, value);
         canvas.requestRenderAll();
     }
 }
 
-// --- CORE FEATURES ---
+// --- CORE FEATURES & LAYERS ---
 function addText() {
-    const text = new fabric.IText('Edit Text', {
-        left: canvas.width / 2 - 50,
+    const text = new fabric.IText('Double Tap to Edit', {
+        left: canvas.width / 2 - 100,
         top: canvas.height / 2,
-        fontFamily: 'Roboto',
-        fill: '#1f2937',
-        fontSize: 48,
-        fontWeight: 'bold'
+        fontFamily: 'Montserrat',
+        fill: '#1e293b',
+        fontSize: 42,
+        fontWeight: 'bold',
+        stroke: '#ffffff', // Default outline color
+        strokeWidth: 0     // Default to no outline
     });
     canvas.add(text);
     canvas.setActiveObject(text);
@@ -67,9 +71,8 @@ document.getElementById('imageUpload').addEventListener('change', function(e) {
         imgObj.src = event.target.result;
         imgObj.onload = function() {
             const img = new fabric.Image(imgObj);
-            // Auto-scale to fit canvas if it's too big
             if (img.width > canvas.width) img.scaleToWidth(canvas.width * 0.8);
-            img.set({ left: 50, top: 50 });
+            img.set({ left: 40, top: 40 });
             canvas.add(img);
             canvas.setActiveObject(img);
         }
@@ -78,17 +81,28 @@ document.getElementById('imageUpload').addEventListener('change', function(e) {
     e.target.value = ''; 
 });
 
+// Move Layers Up and Down
+function moveLayer(direction) {
+    const activeObject = canvas.getActiveObject();
+    if (!activeObject) return;
+
+    if (direction === 'up') {
+        canvas.bringForward(activeObject);
+    } else if (direction === 'down') {
+        canvas.sendBackwards(activeObject);
+    }
+    // ensure objects don't fall behind the canvas background
+    canvas.requestRenderAll();
+}
+
 function toggleOrientation() {
     isPortrait = !isPortrait;
     const newDims = isPortrait ? CARD_PORTRAIT : CARD_LANDSCAPE;
-    
-    // Resize canvas
     canvas.setWidth(newDims.width);
     canvas.setHeight(newDims.height);
     
-    // Re-center all objects so they don't get lost off-screen
     canvas.getObjects().forEach(obj => {
-        if (obj.left > newDims.width) obj.set('left', newDims.width - 100);
+        if (obj.left > newDims.width) obj.set('left', newDims.width - 150);
         if (obj.top > newDims.height) obj.set('top', newDims.height - 100);
     });
     canvas.requestRenderAll();
@@ -109,16 +123,15 @@ window.addEventListener('keydown', (e) => {
 });
 
 function downloadCard() {
-    canvas.discardActiveObject(); // Remove selection borders
+    canvas.discardActiveObject(); 
     canvas.renderAll();
     const link = document.createElement('a');
     link.download = 'MyCard.png';
-    link.href = canvas.toDataURL({ format: 'png', quality: 1 });
+    link.href = canvas.toDataURL({ format: 'png', quality: 1, multiplier: 2 }); // Multiplier:2 exports at high-res
     link.click();
 }
 
-// --- DATABASE LOGIC (IndexedDB for Multiple Saves) ---
-// IndexedDB is asynchronous and handles large image data effortlessly on slow devices.
+// --- DATABASE LOGIC (IndexedDB) ---
 let db;
 const request = indexedDB.open("CardMakerDB", 1);
 
@@ -132,40 +145,34 @@ request.onsuccess = (e) => db = e.target.result;
 
 function saveProject() {
     if (!db) return alert("Database not ready yet.");
-    
-    const name = prompt("Name your card design:", "Birthday Card");
+    const name = prompt("Name your card design:", "New Card");
     if (!name) return;
 
     const projectData = {
-        id: Date.now(), // Unique ID based on time
+        id: Date.now(),
         name: name,
         isPortrait: isPortrait,
-        json: JSON.stringify(canvas.toJSON()) // Save all canvas data
+        json: JSON.stringify(canvas.toJSON()) 
     };
 
     const transaction = db.transaction(['projects'], 'readwrite');
-    const store = transaction.objectStore('projects');
+    store = transaction.objectStore('projects');
     store.put(projectData);
-    
     transaction.oncomplete = () => alert("Card saved successfully!");
-    transaction.onerror = () => alert("Error saving card.");
 }
 
 function loadProject(id) {
     const transaction = db.transaction(['projects'], 'readonly');
     const store = transaction.objectStore('projects');
-    const request = store.get(id);
+    const req = store.get(id);
 
-    request.onsuccess = () => {
-        const project = request.result;
+    req.onsuccess = () => {
+        const project = req.result;
         if (project) {
-            // Restore orientation
             isPortrait = project.isPortrait;
             const dims = isPortrait ? CARD_PORTRAIT : CARD_LANDSCAPE;
             canvas.setWidth(dims.width);
             canvas.setHeight(dims.height);
-
-            // Restore canvas objects
             canvas.loadFromJSON(project.json, () => {
                 canvas.renderAll();
                 closeSavesModal();
@@ -179,7 +186,7 @@ function deleteProjectFromDB(id) {
     const transaction = db.transaction(['projects'], 'readwrite');
     const store = transaction.objectStore('projects');
     store.delete(id);
-    transaction.oncomplete = () => openSavesModal(); // Refresh list
+    transaction.oncomplete = () => openSavesModal(); 
 }
 
 // --- MODAL LOGIC ---
@@ -192,29 +199,27 @@ function openSavesModal() {
 
     const transaction = db.transaction(['projects'], 'readonly');
     const store = transaction.objectStore('projects');
-    const request = store.getAll();
+    const req = store.getAll();
 
-    request.onsuccess = () => {
+    req.onsuccess = () => {
         list.innerHTML = '';
-        if (request.result.length === 0) {
-            list.innerHTML = '<p>No saved cards yet.</p>';
+        if (req.result.length === 0) {
+            list.innerHTML = '<p style="color: #64748b;">No saved cards yet.</p>';
             return;
         }
         
-        // Build the list of saves dynamically
-        request.result.forEach(project => {
+        req.result.forEach(project => {
             const div = document.createElement('div');
             div.className = 'save-item';
-            
             const dateStr = new Date(project.id).toLocaleDateString();
             div.innerHTML = `
                 <div>
                     <strong>${project.name}</strong><br>
-                    <small style="color:#666">${dateStr}</small>
+                    <small style="color:#64748b">${dateStr}</small>
                 </div>
-                <div style="display:flex; gap: 5px;">
+                <div style="display:flex; gap: 8px;">
                     <button class="primary" onclick="loadProject(${project.id})">Load</button>
-                    <button style="color: #dc3545; border-color: #dc3545;" onclick="deleteProjectFromDB(${project.id})">X</button>
+                    <button class="danger" onclick="deleteProjectFromDB(${project.id})">X</button>
                 </div>
             `;
             list.appendChild(div);
@@ -222,6 +227,4 @@ function openSavesModal() {
     };
 }
 
-function closeSavesModal() {
-    modal.style.display = 'none';
-}
+function closeSavesModal() { modal.style.display = 'none'; }
